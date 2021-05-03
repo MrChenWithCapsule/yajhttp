@@ -59,7 +59,7 @@ public class Request {
      * @param header header
      */
     public Request header(@NonNull Header header) {
-        headers.put(header.value(), header);
+        headers.put(header.name(), header);
         return this;
     }
 

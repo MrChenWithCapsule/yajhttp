@@ -57,7 +57,7 @@ public class Response {
      * @param header header
      */
     public Response header(@NonNull Header header) {
-        headers.put(header.value(), header);
+        headers.put(header.name(), header);
         return this;
     }
 
