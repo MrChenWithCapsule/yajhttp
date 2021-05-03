@@ -24,7 +24,7 @@ public class Header {
     }
 
     static Header read(InputStream s) {
-        var h = Util.fromBytes(Util.readUntil(s, '\n')).split(":", 2);
+        var h = Util.readUntil(s, '\n').split(":", 2);
         if (h.length != 2)
             return null;
         return new Header(h[0].strip(), h[1].strip());

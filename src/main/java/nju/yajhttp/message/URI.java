@@ -56,6 +56,6 @@ public class URI {
     }
 
     static URI read(InputStream stream) {
-        return new URI(Util.fromBytes(Util.readUntil(stream, ' ')));
+        return new URI(Util.readUntil(stream, ' '));
     }
 }

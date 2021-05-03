@@ -15,6 +15,6 @@ public enum Version {
 
     static Version read(InputStream s) {
         return Version
-                .valueOf(Util.fromBytes(Util.readUntil(s, '\n')).strip().replace("HTTP/", "HTTP").replace('.', '_'));
+                .valueOf(Util.readUntilSeparator(s).replace("HTTP/", "HTTP").replace('.', '_'));
     }
 }

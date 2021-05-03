@@ -44,7 +44,7 @@ public enum Status {
     }
 
     static Status read(InputStream s) {
-        var v = valueMap.get(Integer.valueOf(Util.fromBytes(Util.readUntil(s, ' '))));
+        var v = valueMap.get(Integer.valueOf(Util.readUntil(s, ' ')));
         if (v == null)
             throw new IllegalArgumentException();
         return v;
