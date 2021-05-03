@@ -1,10 +1,10 @@
 package nju.yajhttp.message;
 
-import java.io.InputStream;
-
 import lombok.EqualsAndHashCode;
 import lombok.SneakyThrows;
 import lombok.ToString;
+
+import java.io.InputStream;
 
 /**
  * {@link https://tools.ietf.org/html/rfc2616#section-3.2}
@@ -17,6 +17,10 @@ public class URI {
     @SneakyThrows
     public URI(String str) {
         uri = new java.net.URI(str);
+    }
+
+    public URI(java.net.URI uri) {
+        this.uri = uri;
     }
 
     public String authority() {
@@ -49,6 +53,14 @@ public class URI {
 
     public String userInfo() {
         return uri.getUserInfo();
+    }
+
+    public URI resolve(URI uri) {
+        return new URI(this.uri.resolve(uri.uri));
+    }
+
+    public URI resolve(String str) {
+        return new URI(uri.resolve(str));
     }
 
     public byte[] toBytes() {
