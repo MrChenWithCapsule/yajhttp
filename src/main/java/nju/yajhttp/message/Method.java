@@ -10,7 +10,7 @@ public enum Method {
     OPTIONS, GET, HEAD, POST, PUT, DELETE, TRACE, CONNECT;
 
     static Method read(InputStream stream) {
-        return Method.valueOf(Util.fromBytes(Util.readUntil(stream, ' ')));
+        return Method.valueOf(Util.readUntil(stream, ' '));
     }
 
     public byte[] toBytes() {
