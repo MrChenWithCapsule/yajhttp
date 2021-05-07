@@ -26,13 +26,13 @@ public class Client {
     Method method = Method.GET;
     URI uri;
     boolean ish = false;
-
-    public void parse(String[] args) throws FileNotFoundException {
+@SneakyThrows
+    public void parse(String[] args) {
         // TODO:headers的name需要化成标准格式;
         for (int i = 0; i < args.length; ++i) {
             if (args[i].equals("-h") || args[i].equals("--help")) {
                 ish = true;
-                System.out.println("helpString");// helpString的值需要更换
+                System.out.println("-u --user <username:password>: 指定用户名和密码\n-o <file>: 输出到文件\n-d --data <data>: 指定使用 POST 请求以及 body\n-H --header <header>: 指定发送请求时的 header，可以多次使用以指定多个 header\n-h --help: 打印帮助信息<url>: 要请求的网址");// helpString的值需要更换
                 return;
             }
         }
@@ -42,23 +42,31 @@ public class Client {
                 case "--user":
                     String tempstr = "Basic "
                             + Base64.getEncoder().encodeToString(args[++i].getBytes(StandardCharsets.US_ASCII));
-                    header.put("authorization", tempstr);
+                    header.put("Authorization", tempstr);
                     break;
                 case "-o":
                     String pathname = args[++i];
                     // TODO: pathname
-                    fos = new FileOutputStream(new File(pathname));
+                    File file=new File(pathname);
+                    File parentFile=file.getParentFile();
+                    if(!parentFile.exists()){
+                        parentFile.mkdirs();
+                    }
+                    if(!file.exists()){
+                        file.createNewFile();
+                    }
+                    fos = new FileOutputStream(file);
                     break;
                 case "-d":
                 case "--data":
                     method = Method.POST;
                     body.add(args[++i]);
-                    header.put("content-type", "application/x-www-form-urlencoded");
+                    header.put("Content-Type", "application/x-www-form-urlencoded");
                     break;
                 case "-H":
                 case "--header":
                     String[] arg = args[++i].split(":");
-                    header.put(arg[0].toLowerCase(), arg[1]);
+                    header.put(arg[0], arg[1]);
                     break;
                 default:
                     uri = new URI(args[i]);
@@ -81,19 +89,14 @@ public class Client {
          * StandardCharsets.UTF_8));
          */
         Client client = new Client();
-        try {
-            client.parse(args);
-        } catch (FileNotFoundException e) {
-            System.out.println("File Not Found");
-            return;
-        }
+        client.parse(args);
         if (client.ish) {
             return;
         }
         int port = 0;
         switch (client.uri.scheme()) {
             case "http":
-                port = 8000;
+                port = 80;
                 break;
             default:
                 throw new Error();
@@ -104,13 +107,13 @@ public class Client {
             String tempStr = String.join("&", client.body);
             byte[] bytes = new String(tempStr).getBytes();
             request.body(bytes);
-            client.header.put("content-length", String.valueOf(bytes.length));
+            client.header.put("Content-Length", String.valueOf(bytes.length));
         }
         for (var i : client.header.keySet()) {
             request.header(i, client.header.get(i));
         }
         @Cleanup
-        Socket socket = new Socket(client.uri.host(), port);
+        Socket socket = new Socket(client.uri.host(), client.uri.port());
         var os = socket.getOutputStream();
         request.write(os);
         var is = socket.getInputStream();
