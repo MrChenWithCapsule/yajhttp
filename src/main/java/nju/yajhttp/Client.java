@@ -101,6 +101,9 @@ public class Client {
             default:
                 throw new Error();
         }
+        if(client.uri.port()!=-1){
+            port=client.uri.port();
+        }
         Request request = new Request().method(client.method).version(Version.HTTP1_0).uri(client.uri).header("Host",
                 client.uri.host());
         if (!client.body.isEmpty()) {
@@ -113,7 +116,7 @@ public class Client {
             request.header(i, client.header.get(i));
         }
         @Cleanup
-        Socket socket = new Socket(client.uri.host(), client.uri.port());
+        Socket socket = new Socket(client.uri.host(), port);
         var os = socket.getOutputStream();
         request.write(os);
         var is = socket.getInputStream();
