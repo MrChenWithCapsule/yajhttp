@@ -29,7 +29,8 @@ public class Util {
 
         // skip '\n' for crlf
         if (last == '\r') {
-            assert stream.read() == '\n';
+            var c = stream.read();
+            assert c == '\n';
         }
 
         return fromBytes(s.toByteArray()).strip();

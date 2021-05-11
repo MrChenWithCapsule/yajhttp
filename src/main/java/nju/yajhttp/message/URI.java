@@ -55,6 +55,10 @@ public class URI {
         return uri.getUserInfo();
     }
 
+    public URI resolve(java.net.URI uri) {
+        return new URI(this.uri.resolve(uri));
+    }
+
     public URI resolve(URI uri) {
         return new URI(this.uri.resolve(uri.uri));
     }

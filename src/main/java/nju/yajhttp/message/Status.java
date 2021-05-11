@@ -3,6 +3,7 @@ package nju.yajhttp.message;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.SneakyThrows;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -39,7 +40,7 @@ public enum Status {
         var s = new ByteArrayOutputStream();
         s.write(Util.toBytes(Integer.toString(code)));
         s.write(' ');
-        s.write(Util.toBytes(toString().replace('_', ' ').toLowerCase()));
+        s.write(Util.toBytes(StringUtils.capitalize(toString().replace('_', ' ').toLowerCase())));
         return s.toByteArray();
     }
 
