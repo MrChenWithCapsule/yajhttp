@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Cleanup;
 import lombok.NonNull;
 import lombok.SneakyThrows;
+import nju.yajhttp.message.Method;
 import nju.yajhttp.message.Request;
 import nju.yajhttp.message.Response;
 import nju.yajhttp.message.Status;
@@ -18,6 +19,8 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Base64;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -27,6 +30,10 @@ public class Server {
     static int port = 8000;
 
     static Options options = new Options();
+
+    static ConcurrentHashMap<String, String> users = new ConcurrentHashMap<>();
+
+    public static final String signupPath = "/_/signup";
 
     static {
         options.addOption(Option.builder("h").longOpt("help").desc("Print help message").build());
@@ -69,16 +76,9 @@ class RequestHandler implements Runnable {
     @NonNull
     Socket socket;
 
-    private static final String templateHTML = "<!DOCTYPE html>\n" +
-                                               "<html>\n" +
-                                               "  <head>\n" +
-                                               "    <meta charset=\"utf-8\">\n" +
-                                               "  </head>\n" +
-                                               "  <h1>Index of ${directory}</h1>\n" +
-                                               "  <ol>\n" +
-                                               "    ${content}\n" +
-                                               "  </ol>\n" +
-                                               "</html>\n";
+    private static final String templateHTML = "<!DOCTYPE html>\n" + "<html>\n" + "  <head>\n"
+            + "    <meta charset=\"utf-8\">\n" + "  </head>\n" + "  <h1>Index of ${directory}</h1>\n" + "  <ol>\n"
+            + "    ${content}\n" + "  </ol>\n" + "</html>\n";
 
     @Override
     @SneakyThrows
@@ -88,6 +88,13 @@ class RequestHandler implements Runnable {
 
         while (true) {
             var request = Request.read(socket.getInputStream());
+
+            if (!authorize(request))
+                continue;
+
+            if (request.uri().path().equals(Server.signupPath))
+                handleSignup(request);
+
             switch (request.method()) {
                 case GET:
                     handleGet(request);
@@ -181,24 +188,61 @@ class RequestHandler implements Runnable {
 
         var body = templateHTML
                 .replace("${directory}", Server.workingDirectory.relativize(dir.toPath()).toString() + "/")
-                .replace("${content}", filelist)
-                .getBytes(StandardCharsets.UTF_8);
+                .replace("${content}", filelist).getBytes(StandardCharsets.UTF_8);
 
-        new Response()
-                .status(Status.OK)
-                .header("Content-Length", Integer.toString(body.length))
-                .header("Content-Type", "text/html")
-                .body(body)
-                .write(socket.getOutputStream());
+        new Response().status(Status.OK).header("Content-Length", Integer.toString(body.length))
+                .header("Content-Type", "text/html").body(body).write(socket.getOutputStream());
     }
 
     @SneakyThrows
     private void error(Status err) {
-        new Response()
-                .status(err)
-                .header("Connection", "close")
-                .body(err.toBytes())
-                .write(socket.getOutputStream());
+        new Response().status(err).header("Connection", "close").body(err.toBytes()).write(socket.getOutputStream());
         throw new RuntimeException("Exit");
+    }
+
+    @SneakyThrows
+    private boolean authorize(Request request) {
+        if (checkAuthorize(request))
+            return true;
+
+        errorUnauthorized();
+        return false;
+    }
+
+    private boolean checkAuthorize(Request request) {
+        if (request.uri().path().equals(Server.signupPath))
+            return true;
+
+        var msg = request.header("Authorization");
+        if (msg == null)
+            return false;
+
+        var info = new String(Base64.getDecoder().decode(msg), StandardCharsets.UTF_8).split(":", 1);
+        if (info.length != 2)
+            return false;
+
+        var passwd = Server.users.get(info[0]);
+        if (passwd == null || !passwd.equals(info[1]))
+            return false;
+
+        return true;
+    }
+
+    @SneakyThrows
+    private void errorUnauthorized() {
+        new Response().status(Status.UNAUTHORIZED).header("WWW-Authorization", "Basic").write(socket.getOutputStream());
+    }
+
+    private static final byte[] signupPage = "".getBytes(StandardCharsets.UTF_8);
+
+    @SneakyThrows
+    private void handleSignup(Request request) {
+        assert request.uri().path().equals(Server.signupPath);
+
+        if (request.method() != Method.GET)
+            error(Status.NOT_IMPLEMENTED);
+
+        new Response().status(Status.OK).header("Content-Length", Integer.toString(signupPage.length))
+                .header("Content-Type", "text/html").body(signupPage).write(socket.getOutputStream());
     }
 }
