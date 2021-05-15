@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Cleanup;
 import lombok.NonNull;
 import lombok.SneakyThrows;
-import nju.yajhttp.message.Method;
 import nju.yajhttp.message.Request;
 import nju.yajhttp.message.Response;
 import nju.yajhttp.message.Status;
@@ -16,10 +15,12 @@ import org.apache.commons.cli.Options;
 import java.io.File;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -77,8 +78,8 @@ class RequestHandler implements Runnable {
     Socket socket;
 
     private static final String templateHTML = "<!DOCTYPE html>\n" + "<html>\n" + "  <head>\n"
-            + "    <meta charset=\"utf-8\">\n" + "  </head>\n" + "  <h1>Index of ${directory}</h1>\n" + "  <ol>\n"
-            + "    ${content}\n" + "  </ol>\n" + "</html>\n";
+                                               + "    <meta charset=\"utf-8\">\n" + "  </head>\n" + "  <h1>Index of ${directory}</h1>\n" + "  <ol>\n"
+                                               + "    ${content}\n" + "  </ol>\n" + "</html>\n";
 
     @Override
     @SneakyThrows
@@ -126,7 +127,7 @@ class RequestHandler implements Runnable {
         var filelist = Arrays.stream(files).map(f -> {
             var str = f.getName() + (f.isDirectory() ? "/" : "");
             return "<li><a href='" + str + "'>" + str + "</li>";
-        }).sorted().reduce((f1, f2) -> f1 + "\n" + f2).get();
+        }).sorted().reduce((f1, f2) -> f1 + "\n" + f2).orElse("");
         filelist = "<li><a href='.'>.</li>\n<li><a href='..'>..</li>\n" + filelist;
 
         var body = templateHTML
@@ -145,47 +146,91 @@ class RequestHandler implements Runnable {
 
     @SneakyThrows
     private boolean authorize(Request request) {
-        if (checkAuthorize(request))
-            return true;
-
-        errorUnauthorized();
-        return false;
-    }
-
-    private boolean checkAuthorize(Request request) {
         if (request.uri().path().equals(Server.signupPath))
             return true;
 
         var msg = request.header("Authorization");
-        if (msg == null)
+        if (msg == null || !msg.startsWith("Basic ")) {
+            errorUnauthorized(false);
             return false;
+        }
 
-        var info = new String(Base64.getDecoder().decode(msg), StandardCharsets.UTF_8).split(":", 1);
-        if (info.length != 2)
+        var info = new String(Base64.getDecoder().decode(msg.substring(6)), StandardCharsets.UTF_8).split(":", 2);
+        if (info.length != 2) {
+            errorUnauthorized(true);
             return false;
+        }
 
         var passwd = Server.users.get(info[0]);
-        if (passwd == null || !passwd.equals(info[1]))
+        if (passwd == null || !passwd.equals(info[1])) {
+            errorUnauthorized(true);
             return false;
+        }
 
         return true;
     }
 
     @SneakyThrows
-    private void errorUnauthorized() {
-        new Response().status(Status.UNAUTHORIZED).header("WWW-Authorization", "Basic").write(socket.getOutputStream());
+    private void errorUnauthorized(boolean redirect) {
+        if (!redirect) {
+            new Response().status(Status.UNAUTHORIZED).header("WWW-Authenticate", "Basic realm=\"Visit /_/signup to signup\"").header("Content-Length", "0")
+                    .write(socket.getOutputStream());
+        } else {
+            var msg = "<html><body>Visit <a href='/_/signup'>/_/signup</a> to signup</body></html>".getBytes(StandardCharsets.UTF_8);
+            new Response()
+                    .status(Status.FORBIDDEN)
+                    .header("Content-Type", "text/html")
+                    .header("Content-Length", Integer.toString(msg.length))
+                    .body(msg)
+                    .write(socket.getOutputStream());
+        }
     }
 
-    private static final byte[] signupPage = "".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] signupPage = ("<html>\n" + "  <head>\n" + "    <meta charset='utf-8'>\n" + "  </head>\n"
+                                              + "  <body>\n" + "    <form name='signup' action='/_/signup' method='post'>\n"
+                                              + "      username: <input type='text' name='username'><br>\n"
+                                              + "      password: <input type='text' name='password'><br>\n"
+                                              + "      <input type='submit' value='submit'>\n" + "    </form>\n" + "  </body>\n"
+                                              + "</html>\n").getBytes(StandardCharsets.UTF_8);
 
     @SneakyThrows
     private void handleSignup(Request request) {
         assert request.uri().path().equals(Server.signupPath);
 
-        if (request.method() != Method.GET)
-            error(Status.NOT_IMPLEMENTED);
+        switch (request.method()) {
+            case GET:
+                new Response().status(Status.OK).header("Content-Length", Integer.toString(signupPage.length))
+                        .header("Content-Type", "text/html").body(signupPage).write(socket.getOutputStream());
+                break;
+            case POST:
+                var args = parseArgs(new String(request.body(), StandardCharsets.UTF_8));
+                if (!args.containsKey("password") || !args.containsKey("username")) {
+                    error(Status.BAD_REQUEST);
+                }
 
-        new Response().status(Status.OK).header("Content-Length", Integer.toString(signupPage.length))
-                .header("Content-Type", "text/html").body(signupPage).write(socket.getOutputStream());
+                Server.users.put(URLDecoder.decode(args.get("username"), StandardCharsets.UTF_8),
+                        URLDecoder.decode(args.get("password"), StandardCharsets.UTF_8));
+
+                var message = "Signup Success".getBytes(StandardCharsets.UTF_8);
+                new Response().status(Status.OK).header("Content-Length", Integer.toString(message.length)).body(message).write(socket.getOutputStream());
+                break;
+            default:
+                error(Status.BAD_REQUEST);
+        }
+    }
+
+    private static HashMap<String, String> parseArgs(String query) {
+        if (query == null)
+            return new HashMap<>();
+
+        var args = query.split("&");
+        var m = new HashMap<String, String>();
+        for (var arg : args) {
+            var pair = arg.split("=");
+            if (pair.length != 2)
+                continue;
+            m.put(pair[0], pair[1]);
+        }
+        return m;
     }
 }
