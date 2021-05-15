@@ -12,7 +12,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 
-import java.io.File;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
@@ -92,14 +92,49 @@ class RequestHandler implements Runnable {
                 case GET:
                     handleGet(request);
                     break;
+                case POST:
+                    handlePost(request);
+                    break;
                 default:
                     error(Status.BAD_REQUEST);
             }
         }
     }
 
-    private void handleGet(Request request) {
+    private void handleGet(Request request) throws IOException {
+        //找到相应的文件发送给 Client
         System.out.println("GET: " + request.uri().path());
+        var relPath = Path.of("./" + Path.of(request.uri().path()).normalize());
+        var file = Server.workingDirectory.resolve(relPath).toFile();
+        if (!file.exists())
+            error(Status.NOT_FOUND);
+        else if (file.isDirectory())
+            listDirectory(file);
+        else
+        {
+            //把文件发给服务端
+            FileInputStream fis = new FileInputStream(file);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] b = new byte[1024];
+            int len = -1;
+            while((len = fis.read(b)) != -1) {
+                bos.write(b, 0, len);
+            }
+            byte[] fileByte = bos.toByteArray();
+            var body = fileByte;
+
+            new Response()
+                    .status(Status.OK)
+                    .header("Content-Length", Integer.toString(body.length))
+                    .header("Content-Type", "text/plain")
+                    .body(body)
+                    .write(socket.getOutputStream());
+        };
+    }
+
+    private void handlePost(Request request) throws IOException {
+        //将请求内容附加到对应文件
+        System.out.println("POST: " + request.uri().path());
         var relPath = Path.of("./" + Path.of(request.uri().path()).normalize());
         var file = Server.workingDirectory.resolve(relPath).toFile();
 
@@ -108,7 +143,29 @@ class RequestHandler implements Runnable {
         else if (file.isDirectory())
             listDirectory(file);
         else
-            error(Status.NOT_IMPLEMENTED);
+        {
+            //将请求内容附加到对应文件中
+            byte addition[]=request.body();
+            OutputStream out = new BufferedOutputStream(new FileOutputStream(file, true));
+            out.write(addition);
+            out.flush();
+            FileInputStream fis = new FileInputStream(file);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] b = new byte[1024];
+            int len = -1;
+            while((len = fis.read(b)) != -1) {
+                bos.write(b, 0, len);
+            }
+            byte[] fileByte = bos.toByteArray();
+            var body = fileByte;
+
+            new Response()
+                    .status(Status.OK)
+                    .header("Content-Length", Integer.toString(body.length))
+                    .header("Content-Type", "text/plain")
+                    .body(body)
+                    .write(socket.getOutputStream());
+        };
     }
 
     @SneakyThrows

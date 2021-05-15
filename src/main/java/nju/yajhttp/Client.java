@@ -19,7 +19,7 @@ public class Client {
     Map<String, String> header = new HashMap<String, String>();
     ArrayList<String> body = new ArrayList<String>();// 需要转成byte
     FileOutputStream fos;
-    Method method = Method.GET;
+    Method method = Method.POST;
     URI uri;
     boolean ish = false;
 
@@ -36,6 +36,7 @@ public class Client {
 
 
         Client client = new Client();
+//        client.body.add("aaa");
 
         //解析命令行
         client.parse(args);
@@ -58,7 +59,7 @@ public class Client {
         client.request = request;
 
 
-        //发送请求
+        //发送请求,得到相应
         client.response = client.sendRequest();
 
         //处理响应状态
@@ -124,8 +125,6 @@ public class Client {
 
 
     Response sendRequest() throws IOException {
-
-
         URI uri = request.uri();
         var port = 0;
         switch (uri.scheme()) {
