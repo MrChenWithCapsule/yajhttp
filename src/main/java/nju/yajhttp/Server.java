@@ -205,7 +205,7 @@ class RequestHandler implements Runnable {
             long len = file.length();
             for (int j = 0; j < (int) len; j++) {
                 int t = fin.read();
-                if (t < 32 && t != 9 && t != 10 && t != 13) {
+                if ((t > 127 && t < 160)||(t < 32 && t != 9 && t != 10 && t != 13)) {
                     isText = false;
                     break;
                 }
