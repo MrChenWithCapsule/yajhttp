@@ -58,7 +58,7 @@ public class Client {
         client.request = request;
 
 
-        //发送请求
+        //发送请求,得到相应
         client.response = client.sendRequest();
 
         //处理响应状态
@@ -124,8 +124,6 @@ public class Client {
 
 
     Response sendRequest() throws IOException {
-
-
         URI uri = request.uri();
         var port = 0;
         switch (uri.scheme()) {

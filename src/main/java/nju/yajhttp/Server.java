@@ -12,11 +12,13 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 
-import java.io.File;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URLConnection;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Base64;
@@ -78,8 +80,8 @@ class RequestHandler implements Runnable {
     Socket socket;
 
     private static final String templateHTML = "<!DOCTYPE html>\n" + "<html>\n" + "  <head>\n"
-                                               + "    <meta charset=\"utf-8\">\n" + "  </head>\n" + "  <h1>Index of ${directory}</h1>\n" + "  <ol>\n"
-                                               + "    ${content}\n" + "  </ol>\n" + "</html>\n";
+            + "    <meta charset=\"utf-8\">\n" + "  </head>\n" + "  <h1>Index of ${directory}</h1>\n" + "  <ol>\n"
+            + "    ${content}\n" + "  </ol>\n" + "</html>\n";
 
     @Override
     @SneakyThrows
@@ -97,16 +99,20 @@ class RequestHandler implements Runnable {
                 handleSignup(request);
 
             switch (request.method()) {
-            case GET:
-                handleGet(request);
-                break;
-            default:
-                error(Status.BAD_REQUEST);
+                case GET:
+                    handleGet(request);
+                    break;
+                case POST:
+                    handlePost(request);
+                    break;
+                default:
+                    error(Status.BAD_REQUEST);
             }
         }
     }
 
-    private void handleGet(Request request) {
+
+    private void handleGet(Request request) throws IOException {
         System.out.println("GET: " + request.uri().path());
         var relPath = Path.of("./" + Path.of(request.uri().path()).normalize());
         var file = Server.workingDirectory.resolve(relPath).toFile();
@@ -116,9 +122,99 @@ class RequestHandler implements Runnable {
         else if (file.isDirectory())
             listDirectory(file);
         else
-            error(Status.NOT_IMPLEMENTED);
+        {
+            //把文件发给服务端
+            FileInputStream fis = new FileInputStream(file);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] b = new byte[1024];
+            int len = -1;
+            while((len = fis.read(b)) != -1) {
+                bos.write(b, 0, len);
+            }
+            byte[] fileByte = bos.toByteArray();
+            var body = fileByte;
+
+            //获取文件MIME类型
+            String MIME=handleMIMEType(file);
+            new Response()
+                    .status(Status.OK)
+                    .header("Content-Length", Integer.toString(body.length))
+                    .header("Content-Type", MIME)
+                    .body(body)
+                    .write(socket.getOutputStream());
+        }
     }
 
+
+
+    private void handlePost(Request request) throws IOException {
+        //将请求内容附加到对应文件
+        System.out.println("POST: " + request.uri().path());
+        var relPath = Path.of("./" + Path.of(request.uri().path()).normalize());
+        var file = Server.workingDirectory.resolve(relPath).toFile();
+
+        if (!file.exists())
+            error(Status.NOT_FOUND);
+        else if (file.isDirectory())
+            listDirectory(file);
+        else
+        {
+            //将请求内容附加到对应文件中
+            byte addition[]=request.body();
+            OutputStream out = new BufferedOutputStream(new FileOutputStream(file, true));
+            out.write(addition);
+            out.flush();
+            FileInputStream fis = new FileInputStream(file);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] b = new byte[1024];
+            int len = -1;
+            while((len = fis.read(b)) != -1) {
+                bos.write(b, 0, len);
+            }
+            byte[] fileByte = bos.toByteArray();
+            var body = fileByte;
+
+            //获取文件MIME类型
+            String MIME=handleMIMEType(file);
+            new Response()
+                    .status(Status.OK)
+                    .header("Content-Length", Integer.toString(body.length))
+                    .header("Content-Type", MIME)
+                    .body(body)
+                    .write(socket.getOutputStream());
+        };
+    }
+
+    private String handleMIMEType(File file) throws IOException {
+        Path path = new File(String.valueOf(file)).toPath();
+        String mimeType = Files.probeContentType(path);
+        if(mimeType==null)
+        {
+            if (isText(file))
+                mimeType="text/plain";
+            else
+                mimeType="application/octet-stream";
+        }
+        return mimeType;
+    }
+
+    private boolean isText(File file) {
+        boolean isText = true;
+        try {
+            FileInputStream fin = new FileInputStream(file);
+            long len = file.length();
+            for (int j = 0; j < (int) len; j++) {
+                int t = fin.read();
+                if ((t > 127 && t < 160)||(t < 32 && t != 9 && t != 10 && t != 13)) {
+                    isText = false;
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return isText;
+    }
     @SneakyThrows
     private void listDirectory(File dir) {
         assert dir.isDirectory();
@@ -187,11 +283,11 @@ class RequestHandler implements Runnable {
     }
 
     private static final byte[] signupPage = ("<html>\n" + "  <head>\n" + "    <meta charset='utf-8'>\n" + "  </head>\n"
-                                              + "  <body>\n" + "    <form name='signup' action='/_/signup' method='post'>\n"
-                                              + "      username: <input type='text' name='username'><br>\n"
-                                              + "      password: <input type='text' name='password'><br>\n"
-                                              + "      <input type='submit' value='submit'>\n" + "    </form>\n" + "  </body>\n"
-                                              + "</html>\n").getBytes(StandardCharsets.UTF_8);
+            + "  <body>\n" + "    <form name='signup' action='/_/signup' method='post'>\n"
+            + "      username: <input type='text' name='username'><br>\n"
+            + "      password: <input type='text' name='password'><br>\n"
+            + "      <input type='submit' value='submit'>\n" + "    </form>\n" + "  </body>\n"
+            + "</html>\n").getBytes(StandardCharsets.UTF_8);
 
     @SneakyThrows
     private void handleSignup(Request request) {
@@ -234,3 +330,4 @@ class RequestHandler implements Runnable {
         return m;
     }
 }
+
