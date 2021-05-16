@@ -18,6 +18,7 @@ import java.net.Socket;
 import java.net.URLConnection;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Base64;
@@ -185,8 +186,34 @@ class RequestHandler implements Runnable {
     }
 
     private String handleMIMEType(File file) throws IOException {
-        URLConnection connection=file.toURL().openConnection();
-        return connection.getContentType();
+        Path path = new File(String.valueOf(file)).toPath();
+        String mimeType = Files.probeContentType(path);
+        if(mimeType==null)
+        {
+            if (isText(file))
+                mimeType="text/plain";
+            else
+                mimeType="application/octet-stream";
+        }
+        return mimeType;
+    }
+
+    private boolean isText(File file) {
+        boolean isText = true;
+        try {
+            FileInputStream fin = new FileInputStream(file);
+            long len = file.length();
+            for (int j = 0; j < (int) len; j++) {
+                int t = fin.read();
+                if (t < 32 && t != 9 && t != 10 && t != 13) {
+                    isText = false;
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return isText;
     }
     @SneakyThrows
     private void listDirectory(File dir) {
