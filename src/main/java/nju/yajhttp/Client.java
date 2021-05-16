@@ -19,7 +19,7 @@ public class Client {
     Map<String, String> header = new HashMap<String, String>();
     ArrayList<String> body = new ArrayList<String>();// 需要转成byte
     FileOutputStream fos;
-    Method method = Method.POST;
+    Method method = Method.GET;
     URI uri;
     boolean ish = false;
 
@@ -36,7 +36,6 @@ public class Client {
 
 
         Client client = new Client();
-//        client.body.add("aaa");
 
         //解析命令行
         client.parse(args);

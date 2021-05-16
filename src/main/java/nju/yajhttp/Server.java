@@ -16,6 +16,7 @@ import org.apache.commons.cli.Options;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -69,6 +70,7 @@ public class Server {
             pool.execute(new RequestHandler(s));
         }
     }
+
 }
 
 @AllArgsConstructor
@@ -130,10 +132,12 @@ class RequestHandler implements Runnable {
             byte[] fileByte = bos.toByteArray();
             var body = fileByte;
 
+            //获取文件MIME类型
+            String MIME=handleMIMEType(file);
             new Response()
                     .status(Status.OK)
                     .header("Content-Length", Integer.toString(body.length))
-                    .header("Content-Type", "text/plain")
+                    .header("Content-Type", MIME)
                     .body(body)
                     .write(socket.getOutputStream());
         };
@@ -166,13 +170,20 @@ class RequestHandler implements Runnable {
             byte[] fileByte = bos.toByteArray();
             var body = fileByte;
 
+            //获取文件MIME类型
+            String MIME=handleMIMEType(file);
             new Response()
                     .status(Status.OK)
                     .header("Content-Length", Integer.toString(body.length))
-                    .header("Content-Type", "text/plain")
+                    .header("Content-Type", MIME)
                     .body(body)
                     .write(socket.getOutputStream());
         };
+    }
+
+    private String handleMIMEType(File file) throws IOException {
+        URLConnection connection=file.toURL().openConnection();
+        return connection.getContentType();
     }
 
     @SneakyThrows
@@ -208,6 +219,7 @@ class RequestHandler implements Runnable {
         errorUnauthorized();
         return false;
     }
+
 
     private boolean checkAuthorize(Request request) {
         if (request.uri().path().equals(Server.signupPath))
@@ -245,4 +257,5 @@ class RequestHandler implements Runnable {
         new Response().status(Status.OK).header("Content-Length", Integer.toString(signupPage.length))
                 .header("Content-Type", "text/html").body(signupPage).write(socket.getOutputStream());
     }
+
 }
