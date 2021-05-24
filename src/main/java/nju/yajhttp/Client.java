@@ -118,11 +118,6 @@ public class Client {
         }
     }
 
-
-
-
-
-
     Response sendRequest() throws IOException {
         URI uri = request.uri();
         var port = 0;
@@ -141,9 +136,6 @@ public class Client {
         Socket socket = new Socket(uri.host(), port);
         OutputStream os = socket.getOutputStream();
         request.write(os);
-
-        //response = Response.read(socket.getInputStream());
-
 
         return Response.read(socket.getInputStream());
     }
@@ -172,7 +164,7 @@ public class Client {
                 msg = "页面未作调整";
                 break;
             default:
-                msg = "未处理的状态：" + response.status().toString();
+                msg = "未处理的状态：" + response.status();
 
         }
 
