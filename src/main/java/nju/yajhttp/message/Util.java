@@ -26,13 +26,11 @@ public class Util {
                 break;
             s.write(last);
         }
-
         // skip '\n' for crlf
         if (last == '\r') {
             var c = stream.read();
             assert c == '\n';
         }
-
         return fromBytes(s.toByteArray()).strip();
     }
 

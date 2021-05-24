@@ -24,11 +24,12 @@ public class Request {
     private Version version = Version.HTTP1_1;
     @NonNull
     private HashMap<String, Header> headers = new HashMap<>();
+
     private byte[] body;
 
     /**
      * Get header value, or {@code null} if header does not exist
-     * 
+     *
      * @param name header name
      */
     public String header(String name) {
@@ -41,7 +42,7 @@ public class Request {
 
     /**
      * Set header value, or remove header
-     * 
+     *
      * @param name  header name
      * @param value header value, or {@code null} to remove header
      */
@@ -55,7 +56,7 @@ public class Request {
 
     /**
      * Set header value
-     * 
+     *
      * @param header header
      */
     public Request header(@NonNull Header header) {
@@ -65,7 +66,7 @@ public class Request {
 
     /**
      * Set URI to string
-     * 
+     *
      * @param str uri string
      */
     public Request uri(String str) {
@@ -80,7 +81,7 @@ public class Request {
 
     /**
      * Read {@link Request} from {@link InputStream}
-     * 
+     *
      * @param stream
      */
     @SneakyThrows
@@ -93,7 +94,7 @@ public class Request {
 
         var len = r.header("Content-Length");
         if (len != null) {
-            r.body(stream.readNBytes(Integer.valueOf(len)));
+            r.body(stream.readNBytes(Integer.parseInt(len)));
         }
 
         return r;
@@ -101,7 +102,7 @@ public class Request {
 
     /**
      * Write {@link Request} to {@link OutputStream}
-     * 
+     *
      * @param stream
      */
     @SneakyThrows
