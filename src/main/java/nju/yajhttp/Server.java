@@ -106,28 +106,32 @@ class RequestHandler implements Runnable {
         @Cleanup
         var socket = this.socket;
 
-        while (true) {
-            var request = Request.read(socket.getInputStream());
-            if (!authorize(request))
-                continue;
-            if (request.uri().path().equals(Server.signupPath))
-                handleSignup(request);
-            // before handle request
-            // condition request
-            Response response = ConditionProcessor.handle(request);
+        try {
+            while (true) {
+                var request = Request.read(socket.getInputStream());
+                if (!authorize(request))
+                    continue;
+                if (request.uri().path().equals(Server.signupPath))
+                    handleSignup(request);
+                // before handle request
+                // condition request
+                Response response = ConditionProcessor.handle(request);
 
-            if (response != null) {
-                response.write(socket.getOutputStream());
-                continue;
-            }
+                if (response != null) {
+                    response.write(socket.getOutputStream());
+                    continue;
+                }
 
-            response = switch (request.method()) {
+                response = switch (request.method()) {
                 case GET -> handleGet(request);
                 case POST -> handlePost(request);
                 default -> error(Status.BAD_REQUEST);
-            };
-            // 统一处理，如果需要
-            response.write(socket.getOutputStream());
+                };
+                // 统一处理，如果需要
+                response.write(socket.getOutputStream());
+            }
+        } catch(RuntimeException e) {
+            // exit
         }
     }
 
