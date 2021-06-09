@@ -305,8 +305,11 @@ class RequestHandler implements Runnable {
 
         switch (request.method()) {
             case GET:
-                new Response().status(Status.OK).header("Content-Length", Integer.toString(signupPage.length))
-                        .header("Content-Type", "text/html").body(signupPage).write(socket.getOutputStream());
+                new Response()
+                        .status(Status.OK)
+                        .header("Content-Length", Integer.toString(signupPage.length))
+                        .header("Content-Type", "text/html").body(signupPage)
+                        .write(socket.getOutputStream());
                 break;
             case POST:
                 var args = parseArgs(new String(request.body(), StandardCharsets.UTF_8));

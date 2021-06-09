@@ -26,6 +26,7 @@ public class ConditionProcessor {
         var relPath = Path.of("./" + Path.of(request.uri().path()).normalize());
         var file = Server.workingDirectory.resolve(relPath).toFile();
         HashMap<String, Header> headers = request.headers();
+
         for (var cur : headers.entrySet()) {
             // only support if none match
             if (cur.getKey().equals("If-None-Match")) {
@@ -39,6 +40,7 @@ public class ConditionProcessor {
             }
 
         }
+        
         return null;
     }
 
